@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>タニィ・フローフィールド スタジオ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+  :root{
+    --bg: #faf7f2;
+    --panel: #ffffffcc;
+    --ink: #3a2f2a;
+    --ink-soft: #8a7b70;
+    --line: #e8dfd4;
+    --accent: #e8792c;
+    --accent-soft: #f4c98a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Noto Sans JP", -apple-system, sans-serif;
+    overflow: hidden;
+    height: 100%;
+  }
+  #wrap {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+  }
+  #canvasHost {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+  }
+  #canvasHost canvas {
+    display: block;
+    box-shadow: 0 20px 60px -20px rgba(60, 40, 20, 0.25);
+    border-radius: 4px;
+  }
+  #panel {
+    width: 300px;
+    min-width: 300px;
+    background: var(--panel);
+    backdrop-filter: blur(6px);
+    border-left: 1px solid var(--line);
+    padding: 22px 20px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .title {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    margin: 0 0 2px;
+  }
+  .subtitle {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    line-height: 1.4;
+  }
+  .desc {
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    margin: 0 0 6px;
+  }
+  .group {
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .group-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .row label span.val {
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  }
+  .swatches {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .swatch {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px var(--line);
+    cursor: pointer;
+    opacity: 0.35;
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .swatch.active { opacity: 1; transform: scale(1.12); }
+  button {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  button:active { transform: translateY(1px); }
+  .btnrow { display: flex; gap: 8px; }
+  .footer-note {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="canvasHost"></div>
+  <div id="panel">
+    <div>
+      <p class="title">Generative Study</p>
+      <p class="subtitle">タニィ・フローフィールド</p>
+      <p class="desc">タニィのデザインDNA（曲線・配色）から抽出したパラメータをリアルタイムに操作するジェネラティブスタジオ。</p>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Flow / 流れ</div>
+      <div class="row">
+        <label>ノイズスケール（うねりの大きさ）<span class="val" id="v_noiseScale">0.004</span></label>
+        <input type="range" id="noiseScale" min="0.0008" max="0.012" step="0.0001" value="0.004">
+      </div>
+      <div class="row">
+        <label>流速<span class="val" id="v_speed">1.4</span></label>
+        <input type="range" id="speed" min="0.2" max="4" step="0.1" value="1.4">
+      </div>
+      <div class="row">
+        <label>渦の強さ（時間変化）<span class="val" id="v_evolve">0.4</span></label>
+        <input type="range" id="evolve" min="0" max="1.5" step="0.05" value="0.4">
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Density / 密度</div>
+      <div class="row">
+        <label>粒子数<span class="val" id="v_count">900</span></label>
+        <input type="range" id="count" min="100" max="2500" step="50" value="900">
+      </div>
+      <div class="row">
+        <label>線の太さ<span class="val" id="v_weight">1.1</span></label>
+        <input type="range" id="weight" min="0.3" max="4" step="0.1" value="1.1">
+      </div>
+      <div class="row">
+        <label>軌跡の残り方（フェード）<span class="val" id="v_fade">6</span></label>
+        <input type="range" id="fade" min="1" max="40" step="1" value="6">
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Color / タニィカラー</div>
+      <div class="swatches" id="swatches"></div>
+      <div class="row">
+        <label>粒状パーティクルの混在率<span class="val" id="v_dust">0.35</span></label>
+        <input type="range" id="dust" min="0" max="1" step="0.05" value="0.35">
+      </div>
+    </div>
+
+    <div class="btnrow">
+      <button class="primary" id="regenBtn">再構成する</button>
+      <button id="clearBtn">画面クリア</button>
+    </div>
+    <div class="btnrow">
+      <button id="pauseBtn">一時停止</button>
+      <button id="saveBtn">画像を保存</button>
+    </div>
+
+    <p class="footer-note">Perlin noiseによるフローフィールド + パーティクルシステム。色はタニィの本体オレンジ〜黄・目の水色・頬の淡いピンクから抽出した5色パレット。すべて画面内で完結し、外部保存は行いません。</p>
+  </div>
+</div>
+
+<script>
+const PALETTE_ALL = [
+  { name: 'orange',  hex: '#E8792C' },
+  { name: 'yellow',  hex: '#F2B84B' },
+  { name: 'deep',    hex: '#D8531C' },
+  { name: 'sky',     hex: '#7FB6E0' },
+  { name: 'blush',   hex: '#F2A9A0' },
+];
+
+let activeColors = new Set(PALETTE_ALL.map(c => c.name));
+
+let params = {
+  noiseScale: 0.004,
+  speed: 1.4,
+  evolve: 0.4,
+  count: 900,
+  weight: 1.1,
+  fade: 6,
+  dust: 0.35,
+};
+
+let particles = [];
+let zoff = 0;
+let paused = false;
+let pg; // graphics buffer for trail fade control
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function currentPalette() {
+  return PALETTE_ALL.filter(c => activeColors.has(c.name));
+}
+
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = random(width);
+    this.y = random(height);
+    this.life = random(60, 240);
+    this.age = 0;
+    const pal = currentPalette();
+    const c = pal.length ? random(pal) : PALETTE_ALL[0];
+    this.col = hexToRgb(c.hex);
+    this.isDust = random() < params.dust;
+    this.px = this.x; this.py = this.y;
+  }
+  update() {
+    const angle = noise(this.x * params.noiseScale, this.y * params.noiseScale, zoff) * TWO_PI * 2;
+    this.px = this.x; this.py = this.y;
+    this.x += cos(angle) * params.speed;
+    this.y += sin(angle) * params.speed;
+    this.age++;
+    if (this.age > this.life || this.x < -20 || this.x > width + 20 || this.y < -20 || this.y > height + 20) {
+      this.reset();
+    }
+  }
+  display(pgfx) {
+    const alpha = this.isDust ? map(sin(this.age * 0.2), -1, 1, 30, 110) : 150;
+    pgfx.stroke(this.col[0], this.col[1], this.col[2], alpha);
+    if (this.isDust) {
+      pgfx.strokeWeight(params.weight * 0.6);
+      pgfx.point(this.x, this.y);
+    } else {
+      pgfx.strokeWeight(params.weight);
+      pgfx.line(this.px, this.py, this.x, this.y);
+    }
+  }
+}
+
+function setup() {
+  const host = document.getElementById('canvasHost');
+  const w = Math.min(host.clientWidth - 4, 980);
+  const h = Math.min(host.clientHeight - 4, 720);
+  const cnv = createCanvas(w, h);
+  cnv.parent('canvasHost');
+  pg = createGraphics(w, h);
+  pg.background(250, 247, 242);
+  initParticles();
+  buildSwatches();
+  bindControls();
+}
+
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < params.count; i++) particles.push(new Particle());
+}
+
+function draw() {
+  if (paused) { image(pg, 0, 0); return; }
+  pg.noStroke();
+  pg.fill(250, 247, 242, params.fade);
+  pg.rect(0, 0, width, height);
+
+  for (const p of particles) {
+    p.update();
+    p.display(pg);
+  }
+  zoff += 0.0018 * params.evolve;
+  image(pg, 0, 0);
+}
+
+function buildSwatches() {
+  const host = document.getElementById('swatches');
+  host.innerHTML = '';
+  PALETTE_ALL.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'swatch active';
+    el.style.background = c.hex;
+    el.title = c.name;
+    el.addEventListener('click', () => {
+      if (activeColors.has(c.name)) {
+        if (activeColors.size > 1) activeColors.delete(c.name);
+      } else {
+        activeColors.add(c.name);
+      }
+      el.classList.toggle('active', activeColors.has(c.name));
+    });
+    host.appendChild(el);
+  });
+}
+
+function bindControls() {
+  const bind = (id, key, digits) => {
+    const el = document.getElementById(id);
+    const out = document.getElementById('v_' + key);
+    el.addEventListener('input', () => {
+      params[key] = parseFloat(el.value);
+      out.textContent = digits !== undefined ? params[key].toFixed(digits) : params[key];
+      if (key === 'count') {
+        if (particles.length < params.count) {
+          while (particles.length < params.count) particles.push(new Particle());
+        } else {
+          particles.length = params.count;
+        }
+      }
+    });
+  };
+  bind('noiseScale', 'noiseScale', 4);
+  bind('speed', 'speed', 1);
+  bind('evolve', 'evolve', 2);
+  bind('count', 'count', 0);
+  bind('weight', 'weight', 1);
+  bind('fade', 'fade', 0);
+  bind('dust', 'dust', 2);
+
+  document.getElementById('regenBtn').addEventListener('click', () => {
+    initParticles();
+  });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    pg.background(250, 247, 242);
+  });
+  document.getElementById('pauseBtn').addEventListener('click', (e) => {
+    paused = !paused;
+    e.target.textContent = paused ? '再開する' : '一時停止';
+  });
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    save(pg, 'tanii_flowfield.png');
+  });
+}
+
+function windowResized() {
+  const host = document.getElementById('canvasHost');
+  const w = Math.min(host.clientWidth - 4, 980);
+  const h = Math.min(host.clientHeight - 4, 720);
+  resizeCanvas(w, h);
+  pg = createGraphics(w, h);
+  pg.background(250, 247, 242);
+}
+</script>
+</body>
+</html>

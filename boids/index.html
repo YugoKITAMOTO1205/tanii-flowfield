@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>タニィ・ボイド スタジオ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+  :root{
+    --bg: #e9e7e3;
+    --panel: #ffffffcc;
+    --ink: #3a2f2a;
+    --ink-soft: #8a7b70;
+    --line: #ddd5c9;
+    --accent: #e8792c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Noto Sans JP", -apple-system, sans-serif;
+    overflow: hidden;
+    height: 100%;
+  }
+  #wrap { display: flex; height: 100vh; width: 100vw; }
+  #canvasHost {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #canvasHost canvas {
+    display: block;
+    box-shadow: 0 20px 60px -20px rgba(60, 40, 20, 0.3);
+    border-radius: 4px;
+  }
+  #panel {
+    width: 300px;
+    min-width: 300px;
+    background: var(--panel);
+    backdrop-filter: blur(6px);
+    border-left: 1px solid var(--line);
+    padding: 22px 20px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .title { font-size: 13px; letter-spacing: 0.12em; color: var(--ink-soft); text-transform: uppercase; margin: 0 0 2px; }
+  .subtitle { font-size: 19px; font-weight: 700; margin: 0 0 4px; line-height: 1.4; }
+  .desc { font-size: 12px; color: var(--ink-soft); line-height: 1.6; margin: 0 0 6px; }
+  .group { border-top: 1px solid var(--line); padding-top: 13px; display: flex; flex-direction: column; gap: 11px; }
+  .group-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent); text-transform: uppercase; }
+  .row { display: flex; flex-direction: column; gap: 4px; }
+  .row label { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink); }
+  .row label span.val { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  input[type="range"] {
+    -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: var(--line); outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  }
+  button {
+    font-family: inherit; font-size: 12px; font-weight: 600; padding: 10px 12px; border-radius: 6px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:active { transform: translateY(1px); }
+  .btnrow { display: flex; gap: 8px; }
+  .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.6; border-top: 1px solid var(--line); padding-top: 12px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="canvasHost"></div>
+  <div id="panel">
+    <div>
+      <p class="title">Generative Study 02</p>
+      <p class="subtitle">タニィ・ボイド</p>
+      <p class="desc">矢羽根状の個体が、近くの仲間だけを見て「離れる・寄る・揃える」の3ルールに従い、群れとして振る舞う。</p>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Boids / 群れの振る舞い</div>
+      <div class="row">
+        <label>個体数<span class="val" id="v_count">180</span></label>
+        <input type="range" id="count" min="20" max="500" step="10" value="180">
+      </div>
+      <div class="row">
+        <label>知覚範囲（仲間とみなす距離）<span class="val" id="v_perc">60</span></label>
+        <input type="range" id="perc" min="15" max="150" step="5" value="60">
+      </div>
+      <div class="row">
+        <label>分離力（近すぎる相手を避ける強さ）<span class="val" id="v_separation">1.0</span></label>
+        <input type="range" id="separation" min="0" max="3" step="0.05" value="1.0">
+      </div>
+      <div class="row">
+        <label>結合力（群れの中心へ寄る強さ）<span class="val" id="v_cohesion">0.6</span></label>
+        <input type="range" id="cohesion" min="0" max="2" step="0.05" value="0.6">
+      </div>
+      <div class="row">
+        <label>整列力（向きを揃える強さ）<span class="val" id="v_alignment">0.8</span></label>
+        <input type="range" id="alignment" min="0" max="2" step="0.05" value="0.8">
+      </div>
+      <div class="row">
+        <label>最大速度<span class="val" id="v_maxspeed">2.4</span></label>
+        <input type="range" id="maxspeed" min="0.5" max="6" step="0.1" value="2.4">
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Look / 見た目</div>
+      <div class="row">
+        <label>個体サイズ<span class="val" id="v_size">14</span></label>
+        <input type="range" id="size" min="4" max="30" step="1" value="14">
+      </div>
+      <div class="row">
+        <label>影の濃さ（立体感）<span class="val" id="v_shadow">0.5</span></label>
+        <input type="range" id="shadow" min="0" max="1" step="0.05" value="0.5">
+      </div>
+      <div class="row">
+        <label>軌跡の残り方<span class="val" id="v_trail">1</span></label>
+        <input type="range" id="trail" min="0" max="1" step="0.01" value="1">
+      </div>
+    </div>
+
+    <div class="btnrow">
+      <button class="primary" id="regenBtn">再構成する</button>
+      <button id="pauseBtn">一時停止</button>
+    </div>
+
+    <p class="footer-note">Craig Reynoldsの Boids アルゴリズム（分離・結合・整列）をそのまま実装。矢羽根の色はタニィの本体オレンジ・黄・目の水色・頬のピンクから抽出した5色。</p>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#E8792C', '#F2B84B', '#D8531C', '#7FB6E0', '#F2A9A0'];
+
+let params = {
+  count: 180,
+  perc: 60,
+  separation: 1.0,
+  cohesion: 0.6,
+  alignment: 0.8,
+  maxspeed: 2.4,
+  size: 14,
+  shadow: 0.5,
+  trail: 1.0,
+};
+
+let boids = [];
+let paused = false;
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+class Boid {
+  constructor() {
+    this.pos = createVector(random(width), random(height));
+    this.vel = p5.Vector.random2D().mult(random(0.5, params.maxspeed));
+    this.acc = createVector(0, 0);
+    this.col = hexToRgb(random(COLORS));
+    this.size = params.size * random(0.7, 1.3);
+  }
+
+  flock(neighbors) {
+    let sep = createVector(), coh = createVector(), ali = createVector();
+    let sepCount = 0, cohCount = 0, aliCount = 0;
+    const percRadius = params.perc;
+
+    for (const other of neighbors) {
+      if (other === this) continue;
+      const d = p5.Vector.dist(this.pos, other.pos);
+      if (d < percRadius && d > 0) {
+        if (d < percRadius * 0.45) {
+          const diff = p5.Vector.sub(this.pos, other.pos).div(d);
+          sep.add(diff); sepCount++;
+        }
+        coh.add(other.pos); cohCount++;
+        ali.add(other.vel); aliCount++;
+      }
+    }
+    if (sepCount > 0) {
+      sep.div(sepCount).setMag(params.maxspeed).sub(this.vel).limit(0.18).mult(params.separation);
+      this.acc.add(sep);
+    }
+    if (cohCount > 0) {
+      coh.div(cohCount).sub(this.pos).setMag(params.maxspeed).sub(this.vel).limit(0.1).mult(params.cohesion);
+      this.acc.add(coh);
+    }
+    if (aliCount > 0) {
+      ali.div(aliCount).setMag(params.maxspeed).sub(this.vel).limit(0.1).mult(params.alignment);
+      this.acc.add(ali);
+    }
+  }
+
+  wrapEdges() {
+    const m = 20;
+    if (this.pos.x < -m) this.pos.x = width + m;
+    if (this.pos.x > width + m) this.pos.x = -m;
+    if (this.pos.y < -m) this.pos.y = height + m;
+    if (this.pos.y > height + m) this.pos.y = -m;
+  }
+
+  update() {
+    this.vel.add(this.acc);
+    this.vel.limit(params.maxspeed);
+    this.pos.add(this.vel);
+    this.acc.mult(0);
+    this.wrapEdges();
+  }
+
+  display(pgfx) {
+    const angle = this.vel.heading();
+    const shadowOffset = params.shadow * 3;
+    pgfx.push();
+    pgfx.translate(this.pos.x, this.pos.y);
+
+    if (params.shadow > 0) {
+      pgfx.push();
+      pgfx.translate(shadowOffset, shadowOffset);
+      pgfx.rotate(angle);
+      pgfx.noStroke();
+      pgfx.fill(0, 0, 0, 40 * params.shadow);
+      drawChevron(pgfx, this.size);
+      pgfx.pop();
+    }
+
+    pgfx.rotate(angle);
+    pgfx.stroke(80, 50, 30, 200);
+    pgfx.strokeWeight(1);
+    pgfx.fill(this.col[0], this.col[1], this.col[2], 235);
+    drawChevron(pgfx, this.size);
+    pgfx.pop();
+  }
+}
+
+function drawChevron(pgfx, s) {
+  pgfx.beginShape();
+  pgfx.vertex(s * 0.9, 0);
+  pgfx.vertex(-s * 0.5, s * 0.45);
+  pgfx.vertex(-s * 0.15, 0);
+  pgfx.vertex(-s * 0.5, -s * 0.45);
+  pgfx.endShape(CLOSE);
+}
+
+function setup() {
+  const host = document.getElementById('canvasHost');
+  const w = Math.min(host.clientWidth - 4, 980);
+  const h = Math.min(host.clientHeight - 4, 640);
+  const cnv = createCanvas(w, h);
+  cnv.parent('canvasHost');
+  initSystem();
+  bindControls();
+}
+
+function initSystem() {
+  boids = [];
+  for (let i = 0; i < params.count; i++) boids.push(new Boid());
+}
+
+function draw() {
+  noStroke();
+  fill(233, 231, 227, 255 * params.trail === 255 ? 255 : 255 * (1 - params.trail) + 1);
+  // when trail=1, fully clear each frame (no ghosting); lower trail = more ghosting
+  const alpha = map(params.trail, 0, 1, 255, 20, true);
+  fill(233, 231, 227, alpha);
+  rect(0, 0, width, height);
+
+  if (paused) return;
+
+  for (const b of boids) b.flock(boids);
+  for (const b of boids) b.update();
+
+  const sorted = boids.slice().sort((a, b2) => a.pos.y - b2.pos.y);
+  for (const b of sorted) b.display(window);
+}
+
+function bindControls() {
+  const bind = (id, key, digits) => {
+    const el = document.getElementById(id);
+    const out = document.getElementById('v_' + key);
+    el.addEventListener('input', () => {
+      params[key] = parseFloat(el.value);
+      out.textContent = digits !== undefined ? params[key].toFixed(digits) : params[key];
+      if (key === 'count') {
+        if (boids.length < params.count) {
+          while (boids.length < params.count) boids.push(new Boid());
+        } else {
+          boids.length = params.count;
+        }
+      }
+    });
+  };
+  bind('count', 'count', 0);
+  bind('perc', 'perc', 0);
+  bind('separation', 'separation', 2);
+  bind('cohesion', 'cohesion', 2);
+  bind('alignment', 'alignment', 2);
+  bind('maxspeed', 'maxspeed', 1);
+  bind('size', 'size', 0);
+  bind('shadow', 'shadow', 2);
+  bind('trail', 'trail', 2);
+
+  document.getElementById('regenBtn').addEventListener('click', () => {
+    initSystem();
+  });
+  document.getElementById('pauseBtn').addEventListener('click', (e) => {
+    paused = !paused;
+    e.target.textContent = paused ? '再開する' : '一時停止';
+  });
+}
+
+function windowResized() {
+  const host = document.getElementById('canvasHost');
+  const w = Math.min(host.clientWidth - 4, 980);
+  const h = Math.min(host.clientHeight - 4, 640);
+  resizeCanvas(w, h);
+}
+</script>
+</body>
+</html>
