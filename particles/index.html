@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Particle Emitters</title>
+<style>
+  :root{
+    --bg: #0b0e14;
+    --panel-bg: rgba(14, 17, 26, 0.72);
+    --panel-border: rgba(255, 200, 140, 0.18);
+    --gold: #f2b26b;
+    --gold-soft: #d99a58;
+    --ice: #9fc6d9;
+    --text: #e9e2d4;
+    --text-dim: #8a8f9c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg);
+    overflow: hidden;
+    font-family: 'Helvetica Neue', 'Hiragino Kaku Gothic ProN', sans-serif;
+  }
+  #sketch-holder { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  #hint {
+    position: fixed;
+    top: 22px; left: 50%; transform: translateX(-50%);
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 6px 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+
+  #panel {
+    position: fixed;
+    right: 20px; bottom: 20px;
+    width: 300px;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    padding: 16px 18px 18px;
+    color: var(--text);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+  }
+  #panel h1 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin: 0 0 2px;
+    color: var(--gold);
+  }
+  #panel .sub {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin: 0 0 14px;
+    letter-spacing: 0.03em;
+  }
+  .row {
+    margin-bottom: 13px;
+  }
+  .row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+    letter-spacing: 0.02em;
+  }
+  .row label span.val {
+    color: var(--gold-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.12);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(242,178,107,0.7);
+    cursor: pointer;
+    margin-top: -5px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 13px; height: 13px; border: none;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(242,178,107,0.7);
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-track {
+    height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--panel-border);
+    margin: 14px 0 12px;
+  }
+
+  #status {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    letter-spacing: 0.03em;
+  }
+  #status .n { color: var(--ice); font-variant-numeric: tabular-nums; }
+
+  #resetBtn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 9px 0;
+    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  #resetBtn:hover {
+    color: var(--gold);
+    border-color: var(--gold-soft);
+  }
+</style>
+</head>
+<body>
+
+<div id="sketch-holder"></div>
+<div id="hint">CLICK ANYWHERE TO IGNITE A PARTICLE SOURCE ・ MAX 3 ACTIVE</div>
+
+<div id="panel">
+  <h1>PARTICLE FIELD</h1>
+  <p class="sub">クリック発生源 / 3個まで同時稼働</p>
+
+  <div class="row">
+    <label>粒子量 <span class="val" id="v-count">6</span></label>
+    <input type="range" id="s-count" min="1" max="20" step="1" value="6">
+  </div>
+  <div class="row">
+    <label>速度 <span class="val" id="v-speed">1.0</span></label>
+    <input type="range" id="s-speed" min="0.2" max="3" step="0.1" value="1.0">
+  </div>
+  <div class="row">
+    <label>寿命（フレーム） <span class="val" id="v-life">90</span></label>
+    <input type="range" id="s-life" min="20" max="240" step="5" value="90">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row">
+    <label>グローサイズ <span class="val" id="v-glow">1.0</span></label>
+    <input type="range" id="s-glow" min="0.3" max="3" step="0.1" value="1.0">
+  </div>
+  <div class="row">
+    <label>色相の揺らぎ <span class="val" id="v-hue">30</span></label>
+    <input type="range" id="s-hue" min="0" max="120" step="5" value="30">
+  </div>
+  <div class="row">
+    <label>拡散角（渦） <span class="val" id="v-swirl">0.0</span></label>
+    <input type="range" id="s-swirl" min="-3" max="3" step="0.1" value="0.0">
+  </div>
+  <div class="row">
+    <label>重力 <span class="val" id="v-gravity">0.0</span></label>
+    <input type="range" id="s-gravity" min="-0.15" max="0.15" step="0.01" value="0.0">
+  </div>
+
+  <div class="divider"></div>
+
+  <div id="status">
+    <span>アクティブ発生源 <span class="n" id="v-active">0</span>/3</span>
+    <span>粒子数 <span class="n" id="v-particles">0</span></span>
+  </div>
+
+  <button id="resetBtn">すべてクリア</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script>
+const MAX_EMITTERS = 3;
+const FADE_DURATION = 70; // frames to fully fade + destroy an emitter
+
+// live-tunable params (bound to sliders)
+const params = {
+  count: 6,
+  speed: 1.0,
+  life: 90,
+  glow: 1.0,
+  hueSpread: 30,
+  swirl: 0.0,
+  gravity: 0.0
+};
+
+let emitters = [];
+let bgLayer; // for subtle persistent trail
+let sketchHolder;
+
+function bindSlider(id, valId, key, format) {
+  const el = document.getElementById(id);
+  const valEl = document.getElementById(valId);
+  el.addEventListener('input', () => {
+    const v = parseFloat(el.value);
+    params[key] = v;
+    valEl.textContent = format ? format(v) : v;
+  });
+}
+bindSlider('s-count', 'v-count', 'count', v => Math.round(v));
+bindSlider('s-speed', 'v-speed', 'speed', v => v.toFixed(1));
+bindSlider('s-life', 'v-life', 'life', v => Math.round(v));
+bindSlider('s-glow', 'v-glow', 'glow', v => v.toFixed(1));
+bindSlider('s-hue', 'v-hue', 'hueSpread', v => Math.round(v));
+bindSlider('s-swirl', 'v-swirl', 'swirl', v => v.toFixed(1));
+bindSlider('s-gravity', 'v-gravity', 'gravity', v => v.toFixed(2));
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  emitters = [];
+});
+
+class Particle {
+  constructor(x, y, baseHue) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = (0.4 + Math.random() * 1.4) * params.speed;
+    this.x = x;
+    this.y = y;
+    this.vx = Math.cos(ang) * spd;
+    this.vy = Math.sin(ang) * spd;
+    this.life = params.life * (0.6 + Math.random() * 0.5);
+    this.maxLife = this.life;
+    this.hue = (baseHue + (Math.random() * 2 - 1) * params.hueSpread + 360) % 360;
+    this.size = 1.4 + Math.random() * 2.6;
+    this.swirl = params.swirl;
+    this.gravity = params.gravity;
+  }
+  update() {
+    // gentle swirl around velocity vector
+    if (this.swirl !== 0) {
+      const nvx = this.vx * Math.cos(this.swirl * 0.02) - this.vy * Math.sin(this.swirl * 0.02);
+      const nvy = this.vx * Math.sin(this.swirl * 0.02) + this.vy * Math.cos(this.swirl * 0.02);
+      this.vx = nvx;
+      this.vy = nvy;
+    }
+    this.vy += this.gravity;
+    this.vx *= 0.992;
+    this.vy *= 0.992;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life -= 1;
+  }
+  isDead() {
+    return this.life <= 0;
+  }
+  draw(p, globalAlpha) {
+    const t = Math.max(0, this.life / this.maxLife);
+    const alpha = t * globalAlpha;
+    if (alpha <= 0.01) return;
+    const s = this.size * params.glow;
+
+    p.noStroke();
+    // outer glow (widest, most saturated, most transparent)
+    p.fill(p.color(this.hue, 65, 100, alpha * 0.16));
+    p.circle(this.x, this.y, s * 7);
+    // mid glow
+    p.fill(p.color(this.hue, 55, 100, alpha * 0.30));
+    p.circle(this.x, this.y, s * 3.5);
+    // core (near-white hot center, slightly tinted by hue)
+    p.fill(p.color(this.hue, 20, 100, alpha * 0.95));
+    p.circle(this.x, this.y, s);
+  }
+}
+
+class Emitter {
+  constructor(x, y, hue) {
+    this.x = x;
+    this.y = y;
+    this.hue = hue;
+    this.particles = [];
+    this.state = 'active'; // 'active' | 'fading' | 'dead'
+    this.fadeFrames = 0;
+    this.spawnAccum = 0;
+  }
+  update() {
+    if (this.state === 'active') {
+      // spawn according to slider count (per-frame rate)
+      this.spawnAccum += params.count * 0.35;
+      while (this.spawnAccum >= 1) {
+        this.particles.push(new Particle(this.x, this.y, this.hue));
+        this.spawnAccum -= 1;
+      }
+    } else if (this.state === 'fading') {
+      this.fadeFrames += 1;
+      if (this.fadeFrames >= FADE_DURATION) {
+        this.state = 'dead';
+      }
+    }
+    for (const pt of this.particles) pt.update();
+    this.particles = this.particles.filter(pt => !pt.isDead());
+  }
+  fadeAlpha() {
+    if (this.state === 'active') return 1;
+    if (this.state === 'fading') return Math.max(0, 1 - this.fadeFrames / FADE_DURATION);
+    return 0;
+  }
+  beginFade() {
+    if (this.state === 'active') {
+      this.state = 'fading';
+      this.fadeFrames = 0;
+    }
+  }
+  isFullyDead() {
+    return this.state === 'dead' && this.particles.length === 0;
+  }
+  draw(p) {
+    const a = this.fadeAlpha();
+    for (const pt of this.particles) pt.draw(p, a);
+  }
+}
+
+const HUE_PALETTE = [30, 25, 40, 200, 195]; // gold-forward, occasional ice-blue
+
+function ignite(x, y) {
+  // if at capacity, fade out the oldest active/fading-not-yet-dead emitter
+  const alive = emitters.filter(e => e.state !== 'dead');
+  if (alive.length >= MAX_EMITTERS) {
+    const oldest = alive.find(e => e.state === 'active') || alive[0];
+    if (oldest) oldest.beginFade();
+  }
+  const hue = HUE_PALETTE[Math.floor(Math.random() * HUE_PALETTE.length)];
+  emitters.push(new Emitter(x, y, hue));
+}
+
+new p5((p) => {
+  p.setup = () => {
+    const holder = document.getElementById('sketch-holder');
+    const cnv = p.createCanvas(window.innerWidth, window.innerHeight);
+    cnv.parent(holder);
+    p.colorMode(p.HSB, 360, 100, 100, 1);
+    p.pixelDensity(Math.min(2, window.devicePixelRatio || 1));
+  };
+
+  p.windowResized = () => {
+    p.resizeCanvas(window.innerWidth, window.innerHeight);
+  };
+
+  p.draw = () => {
+    // dark navy background with slight persistent trail for glow bloom feel
+    p.noStroke();
+    p.fill(228, 45, 7, 0.28);
+    p.rect(0, 0, p.width, p.height);
+
+    p.blendMode(p.ADD);
+    emitters.forEach(e => {
+      e.update();
+      e.draw(p);
+    });
+    p.blendMode(p.BLEND);
+
+    emitters = emitters.filter(e => !e.isFullyDead());
+
+    // update status readout
+    const activeCount = emitters.filter(e => e.state !== 'dead').length;
+    const particleCount = emitters.reduce((sum, e) => sum + e.particles.length, 0);
+    document.getElementById('v-active').textContent = activeCount;
+    document.getElementById('v-particles').textContent = particleCount;
+  };
+
+  p.mousePressed = () => {
+    if (p.mouseY < 0 || p.mouseX < 0 || p.mouseX > p.width || p.mouseY > p.height) return;
+    // ignore clicks landing on the control panel
+    const panel = document.getElementById('panel');
+    const rect = panel.getBoundingClientRect();
+    if (p.mouseX >= rect.left && p.mouseX <= rect.right && p.mouseY >= rect.top && p.mouseY <= rect.bottom) {
+      return;
+    }
+    ignite(p.mouseX, p.mouseY);
+    const hint = document.getElementById('hint');
+    hint.style.opacity = '0';
+  };
+
+  p.touchStarted = () => {
+    p.mousePressed();
+    return false;
+  };
+});
+</script>
+</body>
+</html>
